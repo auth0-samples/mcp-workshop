@@ -5,7 +5,7 @@
 - Node.js 22 or later (22.19 or later for the MCP Inspector)
 - git
 - A free [Auth0 account](https://auth0.com/signup) and tenant (from step 2)
-- The [Auth0 CLI](https://auth0.github.io/auth0-cli/) (optional, every Auth0 step also has a Dashboard route)
+- The [Auth0 CLI](https://auth0.github.io/auth0-cli/) and [`jq`](https://jqlang.org/) (optional: every Auth0 step is documented for both the Dashboard and the CLI)
 - `cloudflared` or `ngrok` (from step 3)
 
 ## Run the server
@@ -17,6 +17,45 @@ npm run dev
 ```
 
 The MCP endpoint is `http://localhost:3001/mcp`. For a production build, run `npm run build && npm start`.
+
+## Auth0 Dashboard navigation
+
+The Auth0 Dashboard has a new sidebar with labeled sections. The guide uses the new names, with the old ones in brackets where they differ. The new navigation is an Early Access feature, and the profile menu has a toggle to switch between the new and the old layout.
+
+| What you need                   | New navigation                                   | Old navigation                       |
+| ------------------------------- | ------------------------------------------------ | ------------------------------------ |
+| Tenant settings (General, Advanced) | **Settings**                                 | **Settings**                         |
+| Applications                    | **Integration > Applications**                   | **Applications > Applications**      |
+| APIs                            | **Integration > APIs**                           | **Applications > APIs**              |
+| Database connections            | **Integration > Authentication > Database**      | **Authentication > Database**        |
+| Roles                           | **Integration > Authorization** (Roles)          | **User Management > Roles**          |
+| Users                           | **Users**                                        | **User Management > Users**          |
+
+Settings tabs such as **Advanced** and **General** keep their names. If an item isn't where the guide says, use the search in the Dashboard or switch to the other layout.
+
+## Auth0 CLI
+
+Every Auth0 step in this guide has a **Dashboard** route and a **CLI** route. Pick whichever you prefer.
+
+```bash
+# install (macOS)
+brew tap auth0/auth0-cli
+brew install auth0
+
+# log in. The extra scopes are needed for the raw `auth0 api` calls in this guide.
+auth0 login --scopes "read:tenant_settings,update:tenant_settings,read:connections,update:connections,read:resource_servers,update:resource_servers,read:clients,create:clients,read:client_grants,create:client_grants"
+
+# check you are on the right tenant
+auth0 tenants list
+```
+
+If a command says the required scopes have changed, run `auth0 login` again and approve the prompt. To switch tenant, use `auth0 tenants use <tenant>` or pass `--tenant <tenant>` to any command.
+
+How the CLI is used in this guide:
+
+- `auth0 apis`, `auth0 roles`, `auth0 users` and `auth0 apps` are dedicated commands.
+- `auth0 api <get|post|patch> <path>` calls any [Management API](https://auth0.com/docs/api/management/v2) endpoint. It is used for tenant settings, connections, client grants and CIMD.
+- `--json` makes a dedicated command print JSON, which the snippets pipe into `jq` to capture IDs.
 
 ## Test with the MCP Inspector
 

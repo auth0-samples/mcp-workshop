@@ -2,7 +2,7 @@
 
 Branch: `step-2-add-auth`
 
-Protect the MCP server with Auth0 using the [`@xmcp-dev/auth0`](https://xmcp.dev/docs/integrations/auth0) plugin, and make both tools aware of the user calling them.
+Protect the MCP server with Auth0 using the [`@xmcp-dev/auth0`](https://xmcp.dev/docs/integrations/auth0) plugin, and make both tools aware of the user calling them. The Inspector will register itself with Auth0 through Dynamic Client Registration (DCR). Step 3 swaps that for a CIMD.
 
 ```bash
 git diff step-1-start-state step-2-add-auth
@@ -10,12 +10,12 @@ git diff step-1-start-state step-2-add-auth
 
 ## What changes
 
-| File                            | Change                                              |
-| ------------------------------- | --------------------------------------------------- |
-| `server/package.json`           | Adds the `@xmcp-dev/auth0` dependency               |
-| `server/src/middleware.ts`      | New. Registers the Auth0 provider                   |
-| `server/.env.example`           | New. Template for the environment variables         |
-| `server/src/tools/whoami.ts`    | Reads the authenticated user with `getAuthInfo()`   |
+| File                              | Change                                            |
+| --------------------------------- | ------------------------------------------------- |
+| `server/package.json`             | Adds the `@xmcp-dev/auth0` dependency             |
+| `server/src/middleware.ts`        | New. Registers the Auth0 provider                 |
+| `server/.env.example`             | New. Template for the environment variables       |
+| `server/src/tools/whoami.ts`      | Reads the authenticated user with `getAuthInfo()` |
 | `server/src/tools/order-pizza.ts` | Addresses the order to the authenticated user     |
 
 ## What the plugin does
@@ -51,12 +51,12 @@ export default auth0Provider({
 });
 ```
 
-| Option                     | Meaning                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `domain`                   | Your Auth0 tenant domain                                                         |
-| `audience`                 | The identifier of the API you create in Auth0. Also the MCP server's resource URL |
-| `baseURL`                  | The MCP server's base URL                                                        |
-| `clientId`, `clientSecret` | A Machine-to-Machine app the server uses to call the Auth0 Management API        |
+| Option                     | Meaning                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `domain`                   | Your Auth0 tenant domain                                                           |
+| `audience`                 | The identifier of the API you create in Auth0. Also the MCP server's resource URL  |
+| `baseURL`                  | The MCP server's base URL                                                          |
+| `clientId`, `clientSecret` | A Machine-to-Machine app the server uses to call the Auth0 Management API          |
 
 ### `.env.example`
 
@@ -135,66 +135,234 @@ export default async function orderPizza({ topping, size }: InferSchema<typeof s
 
 `AuthInfo` fields you can use:
 
-| Field         | Meaning                                                            |
-| ------------- | ------------------------------------------------------------------ |
-| `token`       | The raw access token                                               |
-| `clientId`    | The OAuth client that obtained the token                           |
-| `scopes`      | Scopes from the token (permissions are merged in)                  |
-| `permissions` | Permissions from the token's `permissions` claim, when present     |
-| `expiresAt`   | Expiry timestamp                                                   |
-| `user`        | `sub`, plus `name` and `email` when the token carries them         |
+| Field         | Meaning                                                        |
+| ------------- | -------------------------------------------------------------- |
+| `token`       | The raw access token                                           |
+| `clientId`    | The OAuth client that obtained the token                       |
+| `scopes`      | Scopes from the token (permissions are merged in)              |
+| `permissions` | Permissions from the token's `permissions` claim, when present |
+| `expiresAt`   | Expiry timestamp                                               |
+| `user`        | `sub`, plus `name` and `email` when the token carries them     |
 
 ## 2. Auth0 tenant setup
 
-You can do all of this in the [Auth0 Dashboard](https://manage.auth0.com). Where it helps, the equivalent Auth0 CLI command is shown. Replace `http://localhost:3001/` if your server runs elsewhere, and keep the trailing slash everywhere.
+Each sub-step has a **Dashboard** route and a **CLI** route. Do one of them. Navigation uses the [new Dashboard sidebar](00-prerequisites.md#auth0-dashboard-navigation), with the old name in brackets where it differs. Set up the CLI first if you want to use it ([Auth0 CLI](00-prerequisites.md#auth0-cli)).
 
-### 2.1 Tenant settings
+The CLI snippets share two shell variables. Set them once in the terminal you use for the Auth0 steps, and keep the trailing slash on the audience.
 
-**Settings > Advanced**, then turn on and save:
+```bash
+export AUTH0_DOMAIN=your-tenant.eu.auth0.com
+export MCP_AUDIENCE=http://localhost:3001/
+```
 
-- **Resource Parameter Compatibility Profile**: lets MCP clients request a token with the standard `resource` parameter instead of Auth0's `audience`.
-- **Include Issuer in Authorization Responses**
-- **OIDC Dynamic Application Registration**: lets clients such as the Inspector register themselves. Step 3 replaces this with a CIMD, but it keeps step 2 working out of the box.
+### 2.1 Enable Dynamic Client Registration and MCP settings
+
+Dynamic Client Registration (DCR) lets a client such as the Inspector register itself at runtime. The two other settings make Auth0 behave the way MCP clients expect:
+
+| Setting                                        | Why                                                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Dynamic Client Registration (DCR)              | Lets the Inspector create its own client. Off by default on every tenant                       |
+| Resource Parameter Compatibility Profile       | Lets clients ask for a token with the standard `resource` parameter instead of Auth0's `audience` |
+| Include Issuer in Authorization Responses      | Adds the `iss` parameter to authorization responses, which guards against mix-up attacks       |
+
+**Dashboard**
+
+1. Open **Settings** in the sidebar, then the **Advanced** tab.
+2. In the **Settings** section, turn on:
+   - **Dynamic Client Registration (DCR)** (some docs call it "OIDC Dynamic Application Registration")
+   - **Resource Parameter Compatibility Profile** (already on for new tenants)
+   - **Include Issuer in Authorization Responses**
+3. Save.
+
+**CLI**
+
+```bash
+auth0 api patch "tenants/settings" --data '{
+  "flags": { "enable_dynamic_client_registration": true },
+  "resource_parameter_profile": "compatibility",
+  "authorization_response_iss_parameter_supported": true
+}'
+```
+
+Check it:
+
+```bash
+auth0 api get "tenants/settings" | jq '{
+  dcr: .flags.enable_dynamic_client_registration,
+  resource_parameter_profile,
+  authorization_response_iss_parameter_supported
+}'
+
+curl -s "https://$AUTH0_DOMAIN/.well-known/openid-configuration" | jq .registration_endpoint
+```
+
+The second command prints `https://<tenant>/oidc/register` once DCR is on, and `null` when it is off.
+
+> **Security note.** With DCR on, the `/oidc/register` endpoint accepts requests without a token, so anyone who knows your tenant domain can create applications in it. That is fine for a workshop tenant. Don't leave it on in a tenant that matters. Step 3 replaces DCR with a CIMD and shows how to switch it off again.
 
 ### 2.2 Make a database connection available to MCP clients
 
-MCP clients are third-party applications, so they can only use **domain-level** connections.
+MCP clients are third-party applications, and third-party applications can only use **domain-level** connections.
 
-**Authentication > Database > `Username-Password-Authentication`**, then enable third-party client access or promote the connection to the domain level.
+**Dashboard**
+
+1. Open **Integration > Authentication** (old: **Authentication > Database**) and choose **Database**.
+2. Open `Username-Password-Authentication` (or the connection your users sign in with).
+3. Open the **Settings** tab, scroll to **Promote Connection to Domain Level**, usually in the **Advanced** section, and turn it on.
+4. Click **Save Changes**.
+
+**CLI**
 
 ```bash
-auth0 api get connections
-auth0 api patch connections/YOUR_CONNECTION_ID --data '{"is_domain_connection": true}'
+CONN_ID=$(auth0 api get connections -q "name=Username-Password-Authentication" | jq -r '.[0].id')
+
+auth0 api patch "connections/$CONN_ID" --data '{ "is_domain_connection": true }'
+```
+
+Check it:
+
+```bash
+auth0 api get connections -q "name=Username-Password-Authentication" | jq '.[0] | {id, name, is_domain_connection}'
 ```
 
 ### 2.3 Create the API
 
-**Applications > APIs > Create API**
+The API is the resource server that represents your MCP server. Its identifier becomes the token audience, and the MCP server's resource URL.
 
-- Name: `MCP Tools API`
-- Identifier: `http://localhost:3001/`
-- Signing algorithm: `RS256`
+**Dashboard**
 
-Then set it as the default audience: **Settings > General > API Authorization Settings > Default Audience**, enter `http://localhost:3001/` and save.
+1. Open **Integration > APIs** (old: **Applications > APIs**) and click **Create API**.
+2. Name: `MCP Tools API`
+3. Identifier: `http://localhost:3001/`
+4. Signing algorithm: `RS256`
+5. Click **Create**.
+6. On the API's **Settings** tab, turn on **Allow Offline Access** so clients can get refresh tokens, and save.
 
-### 2.4 Create a Machine-to-Machine application
+**CLI**
 
-The plugin asks the Management API which permissions exist and which the user holds (see [step 4](04-tool-permissions.md)). It does this on every tool call, so the M2M application is needed from this step on.
+```bash
+auth0 apis create \
+  --name "MCP Tools API" \
+  --identifier "$MCP_AUDIENCE" \
+  --signing-alg RS256 \
+  --token-lifetime 86400 \
+  --offline-access=true
+```
 
-1. **Applications > Applications > Create Application**, choose **Machine to Machine Applications**.
-2. Authorize it for the **Auth0 Management API** with these permissions:
-   - `read:resource_servers`
-   - `read:users`
-3. From the application's **Settings** tab, copy the **Domain**, **Client ID** and **Client Secret**.
+Check it:
 
-### 2.5 Environment variables
+```bash
+auth0 apis show "$MCP_AUDIENCE" --json | jq '{id, name, identifier, signing_alg, allow_offline_access}'
+```
+
+> The identifier can't be changed after creation. It must equal `AUDIENCE` in your `.env` exactly, including the trailing slash.
+
+### 2.4 Allow third-party clients to use the API
+
+A client that registers itself can't be configured one by one, so give **all third-party applications** a default grant on the API. Without it, logins fail or return a token with no access to your API.
+
+**Dashboard**
+
+1. Open **Integration > APIs > MCP Tools API** and the **Settings** tab.
+2. In **Default Permissions for Third Party Apps** (part of the **Application Access Policy** section), set **User-Delegated Access** to **Authorized**.
+3. Save.
+
+**CLI**
+
+```bash
+auth0 api post "client-grants" --data "{
+  \"default_for\": \"third_party_clients\",
+  \"audience\": \"$MCP_AUDIENCE\",
+  \"subject_type\": \"user\",
+  \"scope\": []
+}"
+```
+
+Check it:
+
+```bash
+auth0 api get client-grants -q "audience=$MCP_AUDIENCE" | jq '[.[] | {client_id, default_for, subject_type, scope}]'
+```
+
+### 2.5 Set the default audience
+
+The plugin's docs recommend it, and it makes the MCP server work with clients that don't send an audience or a resource.
+
+**Dashboard**
+
+1. Open **Settings**, then the **General** tab.
+2. Under **API Authorization Settings**, set **Default Audience** to `http://localhost:3001/`.
+3. Save.
+
+**CLI**
+
+```bash
+auth0 api patch "tenants/settings" --data "{ \"default_audience\": \"$MCP_AUDIENCE\" }"
+```
+
+### 2.6 Create a Machine-to-Machine application
+
+The plugin asks the Management API which permissions exist and which the user holds (see [step 4](04-tool-permissions.md)). It does this on every tool call, so the M2M application is needed from this step on. Give it exactly two Management API permissions:
+
+- `read:resource_servers`
+- `read:users`
+
+**Dashboard**
+
+1. Open **Integration > Applications** (old: **Applications > Applications**) and click **Create Application**.
+2. Name: `MCP Server (Management API)`. Choose **Machine to Machine Applications** and click **Create**.
+3. Select the **Auth0 Management API**, tick `read:resource_servers` and `read:users`, and click **Authorize**.
+4. On the application's **Settings** tab, copy the **Domain**, **Client ID** and **Client Secret**.
+
+**CLI**
+
+```bash
+M2M=$(auth0 apps create \
+  --name "MCP Server (Management API)" \
+  --type m2m \
+  --reveal-secrets \
+  --json)
+
+M2M_CLIENT_ID=$(echo "$M2M" | jq -r .client_id)
+M2M_CLIENT_SECRET=$(echo "$M2M" | jq -r .client_secret)
+
+auth0 api post "client-grants" --data "{
+  \"client_id\": \"$M2M_CLIENT_ID\",
+  \"audience\": \"https://$AUTH0_DOMAIN/api/v2/\",
+  \"scope\": [\"read:resource_servers\", \"read:users\"]
+}"
+```
+
+Check it:
+
+```bash
+auth0 api get client-grants -q "client_id=$M2M_CLIENT_ID" | jq '.[] | {audience, scope}'
+```
+
+### 2.7 Environment variables
+
+**Dashboard route:** copy the values by hand.
 
 ```bash
 cd server
 cp .env.example .env
 ```
 
-Fill in `DOMAIN`, `CLIENT_ID` and `CLIENT_SECRET`. Leave `AUDIENCE=http://localhost:3001/` and `BASE_URL=http://localhost:3001` as they are.
+Fill in `DOMAIN`, `CLIENT_ID` and `CLIENT_SECRET` from the M2M application. Leave `AUDIENCE=http://localhost:3001/` and `BASE_URL=http://localhost:3001` as they are.
+
+**CLI route:** write the file from the variables you already have.
+
+```bash
+cat > server/.env <<EOF
+DOMAIN=$AUTH0_DOMAIN
+AUDIENCE=$MCP_AUDIENCE
+BASE_URL=http://localhost:3001
+CLIENT_ID=$M2M_CLIENT_ID
+CLIENT_SECRET=$M2M_CLIENT_SECRET
+EOF
+```
+
+`.env` is ignored by git. Never commit the client secret.
 
 ## 3. Try it
 
@@ -210,7 +378,7 @@ In another terminal:
 npx @modelcontextprotocol/inspector --server-url http://localhost:3001/mcp --transport http
 ```
 
-Open the printed URL and connect. The Inspector gets a `401`, discovers Auth0, registers itself, and opens the Auth0 login page. Sign in (sign up first if you have no users) and consent. Then:
+Open the printed URL and connect. The Inspector gets a `401`, discovers Auth0, registers itself through DCR, and opens the Auth0 login page. Sign in (sign up first if you have no users) and consent. Then:
 
 - `whoami` returns your Auth0 `sub`, name, email and the client ID.
 - `order_pizza` addresses the order to you.
@@ -226,16 +394,20 @@ curl -i -X POST http://localhost:3001/mcp \
 
 The response is `401 Unauthorized` with `WWW-Authenticate: Bearer resource_metadata="/.well-known/oauth-protected-resource"`.
 
+To see the client the Inspector registered, open **Integration > Applications**. A new third-party application appears each time the Inspector registers itself, which is the mess that CIMD avoids.
+
 ## Troubleshooting
 
-| Symptom                                           | Likely cause                                                                                     |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `invalid_token`                                   | `DOMAIN` or `AUDIENCE` doesn't match the tenant and API exactly, including the trailing slash     |
-| `Service not found` during login                  | The API identifier isn't exactly the resource URL, including the trailing slash                   |
-| OAuth initialisation fails                        | Resource Parameter Compatibility Profile or OIDC Dynamic Application Registration isn't enabled   |
-| Login works but access is denied                  | The connection isn't domain-level, or the default audience isn't set                              |
+| Symptom                                           | Likely cause                                                                                        |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `invalid_token`                                   | `DOMAIN` or `AUDIENCE` doesn't match the tenant and API exactly, including the trailing slash        |
+| `Service not found` during login                  | The API identifier isn't exactly the resource URL, including the trailing slash                      |
+| OAuth initialisation fails, or no `registration_endpoint` | DCR or the Resource Parameter Compatibility Profile isn't enabled (2.1)                      |
+| Login works but access is denied                  | The connection isn't domain-level (2.2), or there is no default third-party grant on the API (2.4)   |
+| The token has no access to the API                | The default third-party grant is missing or doesn't allow user-delegated access (2.4)                |
 | `You don't have permission to use the '...' tool` | The Management API call failed (wrong M2M credentials or missing grants), which is denied by design |
-| `getAuthInfo()` throws                            | It was called outside a tool handler, or `middleware.ts` doesn't default-export the provider      |
+| `getAuthInfo()` throws                            | It was called outside a tool handler, or `middleware.ts` doesn't default-export the provider         |
+| CLI says required scopes have changed             | Run `auth0 login` again and approve the prompt                                                       |
 
 ## Checkpoint
 
