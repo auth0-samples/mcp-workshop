@@ -2,6 +2,7 @@
   "client_id": "https://example.com/client-metadata.json",
   "client_name": "MCP Workshop Client",
   "client_uri": "https://example.com",
+  "application_type": "native",
   "redirect_uris": [
     "http://localhost:6274/oauth/callback",
     "http://127.0.0.1:6274/oauth/callback"
