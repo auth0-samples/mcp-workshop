@@ -23,6 +23,7 @@ export default async function whoami() {
       email: authInfo.user.email,
       clientId: authInfo.clientId,
       scopes: authInfo.scopes,
+      permissions: authInfo.permissions ?? [],
     },
     null,
     2
