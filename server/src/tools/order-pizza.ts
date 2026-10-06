@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
+import { getAuthInfo } from "@xmcp-dev/auth0";
 
 export const schema = {
   topping: z
@@ -20,8 +21,11 @@ export const metadata: ToolMetadata = {
 };
 
 export default async function orderPizza({ topping, size }: InferSchema<typeof schema>) {
+  const { user } = getAuthInfo();
+  const customer = user.name ?? user.email ?? user.sub;
+
   return [
-    `One ${size} ${topping} pizza is on its way!`,
+    `One ${size} ${topping} pizza is on its way to ${customer}!`,
     `Order ID: ${crypto.randomUUID()}`,
     `Estimated delivery: 25 minutes`,
   ].join("\n");

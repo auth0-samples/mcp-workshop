@@ -1,4 +1,5 @@
 import { type ToolMetadata } from "xmcp";
+import { getAuthInfo } from "@xmcp-dev/auth0";
 
 export const schema = {};
 
@@ -12,18 +13,16 @@ export const metadata: ToolMetadata = {
   },
 };
 
-export default async function whoami(_params: Record<string, never>, extra: any) {
-  const authInfo = extra?.authInfo;
-
-  if (!authInfo) {
-    return "Anonymous: no authentication info is attached to this request yet.";
-  }
+export default async function whoami() {
+  const authInfo = getAuthInfo();
 
   return JSON.stringify(
     {
+      sub: authInfo.user.sub,
+      name: authInfo.user.name,
+      email: authInfo.user.email,
       clientId: authInfo.clientId,
       scopes: authInfo.scopes,
-      extra: authInfo.extra,
     },
     null,
     2
