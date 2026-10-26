@@ -29,7 +29,7 @@ Your `.env` file is ignored by git, so it stays in place when you switch branche
 ```
 MCP client (Inspector)  --OAuth-->  Auth0 (authorization server)
         |                                   |
-        | Bearer access token               | issues token for audience http://localhost:3001/
+        | Bearer access token               | issues token for audience http://localhost:3001/mcp
         v                                   |
 MCP server (xmcp + @xmcp-dev/auth0)  <------+ verifies JWT, checks tool:<name> permission
 ```
