@@ -284,23 +284,7 @@ Check it:
 auth0 api get client-grants -q "audience=$MCP_AUDIENCE" | jq '[.[] | {client_id, default_for, subject_type, scope}]'
 ```
 
-### 2.5 Set the default audience
-
-The plugin's docs recommend it, and it makes the MCP server work with clients that don't send an audience or a resource.
-
-**Dashboard**
-
-1. Open **Settings**, then the **General** tab.
-2. Under **API Authorization Settings**, set **Default Audience** to `http://localhost:3001/mcp`.
-3. Save.
-
-**CLI**
-
-```bash
-auth0 api patch "tenants/settings" --data "{ \"default_audience\": \"$MCP_AUDIENCE\" }"
-```
-
-### 2.6 Create a Machine-to-Machine application
+### 2.5 Create a Machine-to-Machine application
 
 The plugin asks the Management API which permissions exist and which the user holds (see [step 4](04-tool-permissions.md)). It does this on every tool call, so the M2M application is needed from this step on. Give it exactly two Management API permissions:
 
@@ -339,7 +323,7 @@ Check it:
 auth0 api get client-grants -q "client_id=$M2M_CLIENT_ID" | jq '.[] | {audience, scope}'
 ```
 
-### 2.7 Environment variables
+### 2.6 Environment variables
 
 **Dashboard route:** copy the values by hand.
 
