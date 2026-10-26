@@ -43,7 +43,7 @@ brew tap auth0/auth0-cli
 brew install auth0
 
 # log in. The extra scopes are needed for the raw `auth0 api` calls in this guide.
-auth0 login --scopes "read:tenant_settings,update:tenant_settings,read:connections,update:connections,read:resource_servers,update:resource_servers,read:clients,create:clients,read:client_grants,create:client_grants"
+auth0 login --scopes "read:tenant_settings,update:tenant_settings,read:connections,update:connections,read:resource_servers,update:resource_servers,read:clients,create:clients,update:clients,read:client_grants,create:client_grants"
 
 # check you are on the right tenant
 auth0 tenants list
