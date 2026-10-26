@@ -66,8 +66,8 @@ Copy it to `.env` (ignored by git) and fill it in after the Auth0 setup below.
 # Your Auth0 tenant domain, for example my-tenant.eu.auth0.com
 DOMAIN=your-tenant.auth0.com
 
-# The identifier of the API you create in Auth0. It must match exactly, including the trailing slash.
-AUDIENCE=http://localhost:3001/
+# The identifier of the API you create in Auth0. It must match the MCP endpoint URL exactly, including /mcp.
+AUDIENCE=http://localhost:3001/mcp
 
 # Base URL of this MCP server
 BASE_URL=http://localhost:3001
@@ -148,11 +148,11 @@ export default async function orderPizza({ topping, size }: InferSchema<typeof s
 
 Each sub-step has a **Dashboard** route and a **CLI** route. Do one of them. Navigation uses the [new Dashboard sidebar](00-prerequisites.md#auth0-dashboard-navigation), with the old name in brackets where it differs. Set up the CLI first if you want to use it ([Auth0 CLI](00-prerequisites.md#auth0-cli)).
 
-The CLI snippets share two shell variables. Set them once in the terminal you use for the Auth0 steps, and keep the trailing slash on the audience.
+The CLI snippets share two shell variables. Set them once in the terminal you use for the Auth0 steps, and keep `/mcp` on the audience.
 
 ```bash
 export AUTH0_DOMAIN=your-tenant.eu.auth0.com
-export MCP_AUDIENCE=http://localhost:3001/
+export MCP_AUDIENCE=http://localhost:3001/mcp
 ```
 
 ### 2.1 Enable Dynamic Client Registration and MCP settings
@@ -233,7 +233,7 @@ The API is the resource server that represents your MCP server. Its identifier b
 
 1. Open **Integration > APIs** (old: **Applications > APIs**) and click **Create API**.
 2. Name: `MCP Tools API`
-3. Identifier: `http://localhost:3001/`
+3. Identifier: `http://localhost:3001/mcp`
 4. Signing algorithm: `RS256`
 5. Click **Create**.
 6. On the API's **Settings** tab, turn on **Allow Offline Access** so clients can get refresh tokens, and save.
@@ -255,7 +255,7 @@ Check it:
 auth0 apis show "$MCP_AUDIENCE" --json | jq '{id, name, identifier, signing_alg, allow_offline_access}'
 ```
 
-> The identifier can't be changed after creation. It must equal `AUDIENCE` in your `.env` exactly, including the trailing slash.
+> The identifier can't be changed after creation. It must equal `AUDIENCE` in your `.env` exactly, including `/mcp`.
 
 ### 2.4 Allow third-party clients to use the API
 
@@ -291,7 +291,7 @@ The plugin's docs recommend it, and it makes the MCP server work with clients th
 **Dashboard**
 
 1. Open **Settings**, then the **General** tab.
-2. Under **API Authorization Settings**, set **Default Audience** to `http://localhost:3001/`.
+2. Under **API Authorization Settings**, set **Default Audience** to `http://localhost:3001/mcp`.
 3. Save.
 
 **CLI**
@@ -348,7 +348,7 @@ cd server
 cp .env.example .env
 ```
 
-Fill in `DOMAIN`, `CLIENT_ID` and `CLIENT_SECRET` from the M2M application. Leave `AUDIENCE=http://localhost:3001/` and `BASE_URL=http://localhost:3001` as they are.
+Fill in `DOMAIN`, `CLIENT_ID` and `CLIENT_SECRET` from the M2M application. Leave `AUDIENCE=http://localhost:3001/mcp` and `BASE_URL=http://localhost:3001` as they are.
 
 **CLI route:** write the file from the variables you already have.
 
@@ -400,8 +400,8 @@ To see the client the Inspector registered, open **Integration > Applications**.
 
 | Symptom                                           | Likely cause                                                                                        |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `invalid_token`                                   | `DOMAIN` or `AUDIENCE` doesn't match the tenant and API exactly, including the trailing slash        |
-| `Service not found` during login                  | The API identifier isn't exactly the resource URL, including the trailing slash                      |
+| `invalid_token`                                   | `DOMAIN` or `AUDIENCE` doesn't match the tenant and API exactly, including `/mcp`             |
+| `Service not found` during login                  | The API identifier isn't exactly the resource URL, including `/mcp`             |
 | OAuth initialisation fails, or no `registration_endpoint` | DCR or the Resource Parameter Compatibility Profile isn't enabled (2.1)                      |
 | Login works but access is denied                  | The connection isn't domain-level (2.2), or there is no default third-party grant on the API (2.4)   |
 | The token has no access to the API                | The default third-party grant is missing or doesn't allow user-delegated access (2.4)                |
