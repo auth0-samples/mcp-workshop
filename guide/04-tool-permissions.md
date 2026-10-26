@@ -73,7 +73,7 @@ Each sub-step has a **Dashboard** route and a **CLI** route. Do one of them. Nav
 
 ```bash
 export AUTH0_DOMAIN=your-tenant.eu.auth0.com
-export MCP_AUDIENCE=http://localhost:3001/
+export MCP_AUDIENCE=http://localhost:3001/mcp
 ```
 
 ### 2.1 Define the permissions on the API
