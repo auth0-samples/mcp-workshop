@@ -37,7 +37,7 @@ Step 1 only needs Node.js and git.
 Clone the repository and start from the first step:
 
 ```bash
-git clone https://github.com/atko-cic-devrel/mcp-workshop.git
+git clone https://github.com/auth0-samples/mcp-workshop.git
 cd mcp-workshop
 git checkout step-1-start-state
 ```
